@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import asyncio
+import os
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -51,10 +52,8 @@ async def ask_questions(user, question_set, app_type):
     try:
         dm_channel = await user.create_dm()
         
-        # Send initial message
         await dm_channel.send(f"Hello! Let's start your {app_type} application. I'll ask you a few questions. Please respond to each one.")
         
-        # Ask each question and wait for response
         for question in question_set:
             embed = discord.Embed(
                 title=f"{app_type} Application Question",
@@ -63,21 +62,18 @@ async def ask_questions(user, question_set, app_type):
             )
             await dm_channel.send(embed=embed)
             
-            # Wait for user's response
             def check(m):
                 return m.author == user and m.channel == dm_channel
             
             try:
-                response = await bot.wait_for('message', check=check, timeout=300.0)  # 5 minute timeout
+                response = await bot.wait_for('message', check=check, timeout=300.0)
                 responses[question] = response.content
             except asyncio.TimeoutError:
                 await dm_channel.send("You took too long to respond. Application cancelled.")
                 return
         
-        # Send confirmation
         await dm_channel.send(f"Thank you for your {app_type} application! We'll review it soon.")
         
-        # Send responses to a staff channel (optional)
         staff_channel = bot.get_channel(123456789012345678)  # Replace with staff channel ID
         if staff_channel:
             embed = discord.Embed(
@@ -90,7 +86,6 @@ async def ask_questions(user, question_set, app_type):
             await staff_channel.send(embed=embed)
             
     except discord.Forbidden:
-        # If DMs are closed, try to notify user in the original channel
         channel = bot.get_channel(APPLICATION_CHANNEL_ID)
         if channel:
             await channel.send(f"{user.mention}, please enable DMs from server members to complete your {app_type} application!")
@@ -104,10 +99,8 @@ async def on_reaction_add(reaction, user):
     if reaction.message.channel.id == APPLICATION_CHANNEL_ID:
         emoji = str(reaction.emoji)
         
-        # Remove reaction to keep it clean (optional)
         await reaction.remove(user)
         
-        # Check if user already has an ongoing application
         if user in bot.active_applications:
             return
                 
@@ -120,10 +113,10 @@ async def on_reaction_add(reaction, user):
             
         bot.active_applications.remove(user)
 
-# Add this to track active applications
+# Track active applications
 bot.active_applications = set()
 
-# Error handling for the setup command
+# Error handling
 @setup_application.error
 async def setup_application_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
@@ -131,9 +124,10 @@ async def setup_application_error(ctx, error):
     else:
         await ctx.send(f"An error occurred: {error}")
 
+# Load token from environment variable
+TOKEN = os.getenv('DISCORD_TOKEN')
+if TOKEN is None:
+    raise ValueError("No DISCORD_TOKEN found in environment variables!")
+
 # Run the bot
-bot.run('MTM1ODg5NDExNDc0OTI4NDQxMw.GmkDT9.aodJO-xXq2q0PMuJMNlonQ1l-OKDaw_pTYrBuA')  # Replace with your bot token
-
-
-
-
+bot.run(TOKEN)
